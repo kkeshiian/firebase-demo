@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Monitoring Sensor</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  </head>
+  <body
+    class="bg-gray-900 text-white flex flex-col items-center justify-center min-h-screen"
+  >
+    <div
+      class="bg-gray-800 p-8 rounded-lg shadow-lg text-center w-full max-w-lg"
+    >
+      <h2 class="text-2xl font-bold mb-4">Monitoring Sensor</h2>
+      <p class="text-lg">
+        🌡️ Suhu: <span id="suhu" class="font-bold text-yellow-400">--</span>°C
+      </p>
+      <p class="text-lg">
+        💧 Kelembaban:
+        <span id="kelembaban" class="font-bold text-blue-400">--</span>%
+      </p>
+    </div>
+
+    <!-- Grafik -->
+    <div class="bg-gray-800 p-6 rounded-lg shadow-lg mt-6 w-full max-w-lg">
+      <canvas id="sensorChart"></canvas>
+    </div>
+
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-database-compat.js"></script>
+
+    <script>
+      // Konfigurasi Firebase
+      const firebaseConfig = {
+        apiKey: "AIzaSyDASQlF6LjCGM8JkVEfU6f26BvvV5XLaAY",
+        authDomain: "pabrik-demo.firebaseapp.com",
+        databaseURL:
+          "https://pabrik-demo-default-rtdb.asia-southeast1.firebasedatabase.app",
+        projectId: "pabrik-demo",
+        storageBucket: "pabrik-demo.firebasestorage.app",
+        messagingSenderId: "711275334493",
+        appId: "1:711275334493:web:a9d42b2df747b442b0f6b4",
+      };
+
+      // Inisialisasi Firebase
+      firebase.initializeApp(firebaseConfig);
+      const database = firebase.database();
+
+      // Inisialisasi Chart.js
+      const ctx = document.getElementById("sensorChart").getContext("2d");
+      const sensorChart = new Chart(ctx, {
+        type: "line",
+        data: {
+          labels: [], // Waktu pengambilan data
+          datasets: [
+            {
+              label: "Suhu (°C)",
+              data: [],
+              borderColor: "yellow",
+              backgroundColor: "rgba(255, 255, 0, 0.2)",
+              fill: true,
+            },
+            {
+              label: "Kelembaban (%)",
+              data: [],
+              borderColor: "blue",
+              backgroundColor: "rgba(0, 0, 255, 0.2)",
+              fill: true,
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: {
+              beginAtZero: true,
+            },
+          },
+        },
+      });
+
+      // Fungsi ambil data dari Firebase
+      function ambilData() {
+        console.log("Menghubungkan ke Firebase...");
+
+        database.ref("/sensor").on(
+          "value",
+          (snapshot) => {
+            console.log("Snapshot diterima:", snapshot.exists());
+
+            if (snapshot.exists()) {
+              let data = snapshot.val();
+              console.log("Data dari Firebase:", data);
+
+              document.getElementById("suhu").innerText = data.suhu.toFixed(1);
+              document.getElementById("kelembaban").innerText =
+                data.kelembaban.toFixed(1);
+
+              // Menambahkan data baru ke Chart.js
+              let waktu = new Date().toLocaleTimeString();
+              sensorChart.data.labels.push(waktu);
+              sensorChart.data.datasets[0].data.push(data.suhu);
+              sensorChart.data.datasets[1].data.push(data.kelembaban);
+
+              // Batasi jumlah data agar grafik tidak terlalu panjang
+              if (sensorChart.data.labels.length > 10) {
+                sensorChart.data.labels.shift();
+                sensorChart.data.datasets[0].data.shift();
+                sensorChart.data.datasets[1].data.shift();
+              }
+
+              // Update grafik
+              sensorChart.update();
+            } else {
+              console.log("Data tidak ditemukan di Firebase.");
+            }
+          },
+          (error) => {
+            console.error("Gagal membaca data:", error);
+          }
+        );
+      }
+
+      // Jalankan fungsi saat halaman dimuat
+      window.onload = ambilData;
+    </script>
+  </body>
+</html>
