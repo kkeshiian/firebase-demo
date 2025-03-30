@@ -83,50 +83,72 @@
         },
       });
 
-      // Fungsi ambil data dari Firebase
-      function ambilData() {
-        console.log("Menghubungkan ke Firebase...");
-
-        database.ref("/sensor").on(
-          "value",
-          (snapshot) => {
-            console.log("Snapshot diterima:", snapshot.exists());
-
+      // Ambil data lama saat halaman pertama kali dibuka
+      function ambilDataLama() {
+        database
+          .ref("/sensorData")
+          .limitToLast(10)
+          .once("value", (snapshot) => {
             if (snapshot.exists()) {
               let data = snapshot.val();
-              console.log("Data dari Firebase:", data);
+              let dataKeys = Object.keys(data); // Dapatkan semua key
 
-              document.getElementById("suhu").innerText = data.suhu.toFixed(1);
-              document.getElementById("kelembaban").innerText =
-                data.kelembaban.toFixed(1);
+              dataKeys.forEach((key) => {
+                let entry = data[key];
+                let waktu = new Date(entry.timestamp).toLocaleTimeString();
 
-              // Menambahkan data baru ke Chart.js
-              let waktu = new Date().toLocaleTimeString();
-              sensorChart.data.labels.push(waktu);
-              sensorChart.data.datasets[0].data.push(data.suhu);
-              sensorChart.data.datasets[1].data.push(data.kelembaban);
+                sensorChart.data.labels.push(waktu);
+                sensorChart.data.datasets[0].data.push(entry.suhu);
+                sensorChart.data.datasets[1].data.push(entry.kelembaban);
+              });
 
-              // Batasi jumlah data agar grafik tidak terlalu panjang
-              if (sensorChart.data.labels.length > 10) {
-                sensorChart.data.labels.shift();
-                sensorChart.data.datasets[0].data.shift();
-                sensorChart.data.datasets[1].data.shift();
-              }
-
-              // Update grafik
               sensorChart.update();
-            } else {
-              console.log("Data tidak ditemukan di Firebase.");
             }
-          },
-          (error) => {
-            console.error("Gagal membaca data:", error);
+          });
+      }
+
+      // Fungsi ambil data terbaru dari Firebase
+      function ambilDataBaru() {
+        database.ref("/sensor").on("value", (snapshot) => {
+          if (snapshot.exists()) {
+            let data = snapshot.val();
+
+            document.getElementById("suhu").innerText = data.suhu.toFixed(1);
+            document.getElementById("kelembaban").innerText =
+              data.kelembaban.toFixed(1);
+
+            let waktu = new Date().toLocaleTimeString();
+
+            // Simpan ke Firebase agar tersimpan untuk histori
+            let newEntry = {
+              suhu: data.suhu,
+              kelembaban: data.kelembaban,
+              timestamp: Date.now(),
+            };
+            database.ref("/sensorData").push(newEntry);
+
+            // Update Chart
+            sensorChart.data.labels.push(waktu);
+            sensorChart.data.datasets[0].data.push(data.suhu);
+            sensorChart.data.datasets[1].data.push(data.kelembaban);
+
+            // Batasi jumlah data agar tidak terlalu panjang
+            if (sensorChart.data.labels.length > 10) {
+              sensorChart.data.labels.shift();
+              sensorChart.data.datasets[0].data.shift();
+              sensorChart.data.datasets[1].data.shift();
+            }
+
+            sensorChart.update();
           }
-        );
+        });
       }
 
       // Jalankan fungsi saat halaman dimuat
-      window.onload = ambilData;
+      window.onload = () => {
+        ambilDataLama();
+        ambilDataBaru();
+      };
     </script>
   </body>
 </html>
